@@ -33,32 +33,25 @@ def drop_columns(df, threshold):
     df = df[nan_count.index.tolist()]
     return df
 
-
-def identify_categories(df, match_word='cat'):
-    """
-    Identify the categorical functions
-    """
-    col_name=list(df)
-    categories=[]
-    for i in col_name:
-        if match_word in i:
-            categories.append(i)
-    
-    return categories
-
-def dummy_conversion(df, threshold, categories=[]):
+def dummy_conversion(df, threshold):
     """
     Transform the columns with strings to features only if the number of dummy variables 
     created are smaller than the the threshold
     """
+
+    def identify_categories(match_word='_cat'):
+        """
+        Identify the categorical functions
+        """
+        cols = list(df)
+        return list(filter(lambda col: col.endswith(match_word), cols))
+
+    categories = identify_categories()
     list_names = []
     for c in df.columns:
-        if (df[c].dtype == 'object') | (c in categories):
-            if c in categories:
-                df[c] = df[c].astype('category')
-                n = len(df[c].cat.categories)
-            else:
-                n = len(set(df[c]))
+        if c in categories:
+            df[c] = df[c].astype('category')
+            n = len(df[c].cat.categories)
                 
             if n <= threshold:
                 list_names.append(c)
@@ -72,14 +65,14 @@ def dummy_conversion(df, threshold, categories=[]):
     return df
 
 
-def create_submission(train, test, threshold, col_ignore=['target']):
+def adjust_datasets(train, test, threshold, col_ignore=['target']):
     """
     Transform the train and test stes in equivalent versions.
     """
     print('Creating dummies')
     col_ignore=list(col_ignore)
-    train=dummy_conversion(train,threshold,identify_categories(train))
-    test=dummy_conversion(test,threshold,identify_categories(test))
+    train = dummy_conversion(train,threshold)
+    test = dummy_conversion(test,threshold)
     train_names= list(train)
     for i in train_names:
         if i in col_ignore:
@@ -103,7 +96,8 @@ def create_submission(train, test, threshold, col_ignore=['target']):
     return train, test
 
 
+
 if __name__ == '__main__':
-    df_test=pd.read_csv('data/test.csv')
-    df_train=pd.read_csv('data/train.csv')
-    df_train,df_test=create_submission(df_train, df_test, 50, ['target'])
+    df_test = pd.read_csv('data/test.csv')
+    df_train = pd.read_csv('data/train.csv')
+    df_train,df_test = adjust_datasets(df_train, df_test, 50, ['target'])

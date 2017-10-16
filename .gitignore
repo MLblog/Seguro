@@ -1,5 +1,8 @@
 # Data should not version controlled
 data/
+tuning.txt
+submissions/
+
 
 # Compiled files
 __pycache__/
