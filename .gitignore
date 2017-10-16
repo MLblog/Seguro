@@ -1,2 +1,8 @@
 # Data should not version controlled
 data/
+
+# Compiled files
+__pycache__/
+
+# IDE project files
+.idea/
