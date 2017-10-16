@@ -5,12 +5,16 @@ Created on Sun Oct 15 18:23:12 2017
 @author: s157084
 """
 
-import numpy as np
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder
 import time
 
+
 def timing(f):
+    """
+    Decorator to time a function call and print results.
+    :param f: Callable to be timed
+    :return: Void. Prints to std:out as a side effect
+    """
     def wrap(*args):
         start = time.time()
         ret = f(*args)
@@ -19,18 +23,10 @@ def timing(f):
         return ret
     return wrap
 
-def drop_unchecked(df, cols):
-    """
-    An unchecked version of pandas.DataFrame.drop(cols, axis=1). This will not raise
-    an error in case of non existing column. Be careful though, as this might hide spelling errors.
-    """
-    for col in (set(cols) & set(df.columns)):
-        df = df.drop([col], axis=1)
-    return df
 
 def drop_columns(df, threshold):
     """
-    Drop the coluns with more than threshold % of missing values. Based on Manos algorithm.
+    Drop the columns with more than threshold % of missing values. Based on Manos algorithm.
     """
     nan_count = df.isnull().mean()
     nan_count = nan_count[nan_count <= threshold]
@@ -38,10 +34,10 @@ def drop_columns(df, threshold):
     return df
 
 
-def identify_categories(df,match_word='cat'):
-    '''
-    Identify the categorical functions 
-    '''
+def identify_categories(df, match_word='cat'):
+    """
+    Identify the categorical functions
+    """
     col_name=list(df)
     categories=[]
     for i in col_name:
@@ -75,7 +71,8 @@ def dummy_conversion(df, threshold, categories=[]):
     df = pd.get_dummies(df, columns=list_names)
     return df
 
-def create_submission(train, test,threshold, col_ignore=['target']):
+
+def create_submission(train, test, threshold, col_ignore=['target']):
     """
     Transform the train and test stes in equivalent versions.
     """
@@ -88,7 +85,7 @@ def create_submission(train, test,threshold, col_ignore=['target']):
         if i in col_ignore:
             train_names.remove(i)
 
-    test_names=list(test)
+    test_names = list(test)
 
     print('Creating features in train')
     for i in train_names:
@@ -98,16 +95,15 @@ def create_submission(train, test,threshold, col_ignore=['target']):
     
     print('Deleting extra varibles in train')
     for i in test_names:
-        if (i not in train_names):
+        if i not in train_names:
             print('The feature '+i+' is not included in the training set. Accion: delete the feature')
             del test[i]
             
-    test=test[train_names]
-    
+    test = test[train_names]
     return train, test
 
 
 if __name__ == '__main__':
     df_test=pd.read_csv('data/test.csv')
     df_train=pd.read_csv('data/train.csv')
-    df_train,df_test=create_submission(df_train,df_test,50,['target'])
+    df_train,df_test=create_submission(df_train, df_test, 50, ['target'])
