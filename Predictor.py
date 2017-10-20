@@ -6,6 +6,8 @@ from sklearn.metrics import mean_absolute_error, make_scorer
 from FeatureEngineering import *
 from sklearn.model_selection import GridSearchCV
 
+TUNING_OUTPUT_DEFAULT = 'tuning.txt'
+
 """
 An abstract class modeling our notion of a predictor.
 Concrete implementations should follow the predictors
@@ -85,28 +87,29 @@ class Predictor(object):
         train, test = adjust_datasets(train, test, 50)
         submit(train, test, params)
 
-    def persist_tuning(self, score, params, write_to):
-        """
-        Persists a set of parameters as well as their achieved score to a file.
-        :param params: Parameters used
-        :param score: Score achieved on the test set using params
-        :param write_to: If passed, the optimal parameters found will be written to a file
-        :return: Void
-        """
-        with open(write_to, "a") as f:
-            f.write("------------------------------------------------\n")
-            f.write("Model\t{}\n".format(self.name))
-            f.write("Best GINI\t{}\nparams: {}\n\n".format(score, params))
-
     @timing
-    def tune(self, params, nfolds=3, verbose=3):
+    def tune(self, params, nfolds=3, verbose=3, persist=True, write_to=TUNING_OUTPUT_DEFAULT):
         """
         Exhaustively searches over the grid of parameters for the best combination
         :param params: Grid of parameters to be explored
         :param nfolds: Number of folds to be used by cross-validation.
         :param verbose: Verbosity level. 0 is silent, higher int prints more stuff
+        :param write_to: If persist is set to True, write_to defines the filepath to write to
         :return: Dict of best parameters found.
         """
+        def persist_tuning(score, params, write_to=write_to):
+            """
+            Persists a set of parameters as well as their achieved score to a file.
+            :param params: Parameters used
+            :param score: Score achieved on the test set using params
+            :param write_to: If passed, the optimal parameters found will be written to a file
+            :return: Void
+            """
+            with open(write_to, "a") as f:
+                f.write("------------------------------------------------\n")
+                f.write("Model\t{}\n".format(self.name))
+                f.write("Best GINI\t{}\nparams: {}\n\n".format(score, params))
+
         self.preprocess()
         train, _ = self.split()
         y_train = train['target'].values
@@ -117,6 +120,8 @@ class Predictor(object):
         grid = GridSearchCV(self.model, params, cv=nfolds, n_jobs=4, scoring=scoring, verbose=verbose)
         grid.fit(x_train, y_train)
 
+        if persist:
+            persist_tuning(grid.best_score_, grid.best_params_)
         return grid.best_params_, grid.best_score_
 
     def _gini_normalized(self, a, p):
