@@ -43,7 +43,7 @@ class XGBoostPredictor(Predictor):
 if __name__ == "__main__":
 
     # Test that the classifier works
-    input = pd.read_csv('data/train.csv')
+    input = pd.read_csv('data/train.csv', na_values=(-1))
 
 
     ##### RUN XGBOOST
@@ -53,8 +53,8 @@ if __name__ == "__main__":
         'learning_rate': 0.05,
         'max_depth': 5,
         'subsample': 1,
-        'n_estimators': 100,
-        'missing': -1,
+        'n_estimators': 200,
+        #'missing': -1,
         'reg_lambda': 0.8,
         'silent': 1
     }
@@ -62,30 +62,29 @@ if __name__ == "__main__":
     model = XGBoostPredictor(input, params)
     model.create_submission(params)
 
-    # Tune Model
+    # # Tune Model
     # print("Tuning XGBoost...")
     # tuning_params = {
-    #     'learning_rate': [0.037, 0.05],
+    #     'learning_rate': [0.05, 0.06],
     #     'silent': [1],
-    #     'max_depth': [5],
+    #     'max_depth': [6],
     #     'subsample': [1],
     #     'reg_lambda': [0.8],
     #     'n_jobs': [8],
-    #     'n_estimators': [100],
+    #     'n_estimators': [200],
     #     'missing': [-1]
     # }
     # optimal_params, optimal_score = model.tune(tuning_params)
-    # model.persist_tuning(score=optimal_score, params=optimal_params, write_to='tuning.txt')
-
-
-
-    # Train the model using the best set of parameters found by the gridsearch
-    print("\nTraining XGBoost ...")
-    model.train(params)
-
-    print("\nEvaluating model...")
-    gini = model.evaluate()
-
-    print("\n##########")
-    print("GINI score is: ", gini)
-    print("##########")
+    #
+    #
+    #
+    # # Train the model using the best set of parameters found by the gridsearch
+    # print("\nTraining XGBoost ...")
+    # model.train(params)
+    #
+    # print("\nEvaluating model...")
+    # gini = model.evaluate()
+    #
+    # print("\n##########")
+    # print("GINI score is: ", gini)
+    # print("##########")

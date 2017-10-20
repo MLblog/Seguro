@@ -85,7 +85,7 @@ class Predictor(object):
         train = pd.read_csv('data/train.csv')
         test = pd.read_csv('data/test.csv')
         train, test = adjust_datasets(train, test, 50)
-        submit(train, test, params)
+        submit()
 
     @timing
     def tune(self, params, nfolds=3, verbose=3, persist=True, write_to=TUNING_OUTPUT_DEFAULT):
@@ -171,7 +171,9 @@ class BasePredictor(Predictor):
         self.params['mean'] = np.mean(y_train)
 
     def predict(self, x_val):
-        return [self.params['mean']] * len(x_val)
+        #return [self.params['mean']] * len(x_val)
+        predictions = [0] * len(x_val)
+        predictions[5] = 1
 
 
 if __name__ == "__main__":
