@@ -6,8 +6,8 @@ import numpy as np
 
 class SVMPredictor(Predictor):
 
-    def __init__(self, input, params={}, name='Support Vector Machine'):
-        super().__init__(input, params, name=name)
+    def __init__(self, train, test, params={}, name='Support Vector Machine'):
+        super().__init__(train, test, params, name=name)
         self.model = SVR()
 
     def preprocess(self, threshold=50):
@@ -15,10 +15,10 @@ class SVMPredictor(Predictor):
         A function that, given the raw dataset creates a feature vector.
         Feature Engineering, cleaning and imputation goes here
         """
-        self.input = dummy_conversion(self.input, threshold)
-        self.input = normalize(self.input)
+        self.train = dummy_conversion(self.train, threshold)
+        self.train = normalize(self.train)
 
-    def train(self, params=None):
+    def fit(self, params=None):
         """
         A function that trains the predictor on the given dataset. Optionally accepts a set of parameters
         """
@@ -45,7 +45,8 @@ class SVMPredictor(Predictor):
 if __name__ == "__main__":
 
     # Test that the classifier works
-    input = pd.read_csv('data/train.csv')
+    train = pd.read_csv('data/train.csv')
+    test = pd.read_csv('data/test.csv')
 
 
     ##### RUN XGBOOST
@@ -63,7 +64,7 @@ if __name__ == "__main__":
         'max_iter': 100
     }
 
-    model = SVMPredictor(input, params)
+    model = SVMPredictor(train, test, params)
     #model.create_submission(params)
 
     # Tune Model
@@ -89,7 +90,7 @@ if __name__ == "__main__":
 
     # Train the model using the best set of parameters found by the gridsearch
     print("\nTraining SVM ...")
-    model.train(params)
+    model.fit(params)
 
     print("\nEvaluating model...")
     gini = model.evaluate()

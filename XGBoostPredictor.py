@@ -9,11 +9,11 @@ from FeatureEngineering import *
 
 class XGBoostPredictor(Predictor):
 
-    def __init__(self, input, params={}, name='XGBoost'):
+    def __init__(self, train, test, params={}, name='XGBoost'):
         self.model = xgb.XGBRegressor()
-        super().__init__(input, params, name=name)
+        super().__init__(train, test, params, name=name)
 
-    def train(self, params=None, num_boost_rounds=242):
+    def fit(self, params=None, num_boost_rounds=242):
         """
         A function that trains the predictor on the given dataset. Optionally accepts a set of parameters
         """
@@ -43,7 +43,8 @@ class XGBoostPredictor(Predictor):
 if __name__ == "__main__":
 
     # Test that the classifier works
-    input = pd.read_csv('data/train.csv', na_values=(-1))
+    train = pd.read_csv('data/train.csv')
+    test = pd.read_csv('data/test.csv')
 
 
     ##### RUN XGBOOST
@@ -54,37 +55,37 @@ if __name__ == "__main__":
         'max_depth': 5,
         'subsample': 1,
         'n_estimators': 200,
-        #'missing': -1,
+        'missing': -1,
         'reg_lambda': 0.8,
         'silent': 1
     }
 
-    model = XGBoostPredictor(input, params)
-    model.create_submission(params)
+    model = XGBoostPredictor(train, test, params)
+    # model.create_submission(params)
 
-    # # Tune Model
-    # print("Tuning XGBoost...")
-    # tuning_params = {
-    #     'learning_rate': [0.05, 0.06],
-    #     'silent': [1],
-    #     'max_depth': [6],
-    #     'subsample': [1],
-    #     'reg_lambda': [0.8],
-    #     'n_jobs': [8],
-    #     'n_estimators': [200],
-    #     'missing': [-1]
-    # }
-    # optimal_params, optimal_score = model.tune(tuning_params)
-    #
-    #
-    #
-    # # Train the model using the best set of parameters found by the gridsearch
-    # print("\nTraining XGBoost ...")
-    # model.train(params)
-    #
-    # print("\nEvaluating model...")
-    # gini = model.evaluate()
-    #
-    # print("\n##########")
-    # print("GINI score is: ", gini)
-    # print("##########")
+    # Tune Model
+    print("Tuning XGBoost...")
+    tuning_params = {
+        'learning_rate': [0.05, 0.06],
+        'silent': [1],
+        'max_depth': [6],
+        'subsample': [1],
+        'reg_lambda': [0.8],
+        'n_jobs': [8],
+        'n_estimators': [200],
+        'missing': [-1]
+    }
+    optimal_params, optimal_score = model.tune(tuning_params)
+
+
+
+    # Train the model using the best set of parameters found by the gridsearch
+    print("\nTraining XGBoost ...")
+    model.fit(params)
+
+    print("\nEvaluating model...")
+    gini = model.evaluate()
+
+    print("\n##########")
+    print("GINI score is: ", gini)
+    print("##########")

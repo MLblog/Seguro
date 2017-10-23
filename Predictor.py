@@ -16,7 +16,7 @@ interface
 class Predictor(object):
     __metaclass__ = ABCMeta
 
-    def __init__(self, input, params={}, name=None):
+    def __init__(self, train, test, params={}, name=None):
         """
         Base constructor
 
@@ -24,7 +24,8 @@ class Predictor(object):
         :param params: a dictionary of named model parameters
         :param name: Optional model name, used for logging
         """
-        self.input = input
+        self.train = train
+        self.test = test
         self.params = params
         self.name = name
 
@@ -32,18 +33,18 @@ class Predictor(object):
         """Override parameters set in the constructor. Dictionary expected"""
         self.params = params
 
-    def split(self, test_size=0.3):
+    def split(self, val_size=0.3):
         """
         Splits the merged input (features + labels) into a training and a validation set
-        :return: a tuple of training and test sets with the given size ratio
+        :return: a tuple of training and validation sets with the given size ratio
         """
-        train, test = train_test_split(self.input, test_size=test_size, random_state=42)
-        return train, test
+        train, val = train_test_split(self.train, test_size=val_size, random_state=42)
+        return train, val
 
     @abstractmethod
-    def train(self):
+    def fit(self):
         """
-        A function that trains the predictor on the given dataset.
+        A function that fits the predictor to the given dataset.
         """
 
     @abstractmethod
@@ -55,11 +56,29 @@ class Predictor(object):
         """
 
     def preprocess(self, threshold=50):
-        """
-        A function that, given the raw dataset creates a feature vector.
-        Feature Engineering, cleaning and imputation goes here
-        """
-        self.input = dummy_conversion(self.input, threshold)
+        def concat():
+            self.train['is_train'] = True
+            self.test['is_train'] = False
+            self.test['target'] = None
+            assert set(self.train) == set(self.test), 'train and test sets have different features'
+            return pd.concat([self.train, self.test])
+
+        def cleanup(full):
+            self.train = full[full['is_train']]
+            self.test = full[~full['is_train']]
+            self.train = self.train.drop('is_train', axis=1)
+            self.test = self.test.drop(['is_train', 'target'], axis=1)
+            assert len(full) == (len(self.train) + len(self.test))
+            del full
+
+        full = concat()
+
+        ######################################
+        # ACTUAL PREPROCESSING CALLS GO HERE #
+        ######################################
+        full = dummy_conversion(full, threshold)
+
+        cleanup(full)
 
     def create_submission(self, params):
         def submit():
@@ -70,9 +89,9 @@ class Predictor(object):
                     return 1
                 return p
 
-            self.train(params)
-            ids = test['id']
-            predictions = self.predict(test)
+            self.fit(params)
+            ids = self.test['id']
+            predictions = self.predict(self.test)
             truncated_predictions = list(map(truncate, predictions))
             submission = pd.DataFrame(
                 {'id': ids,
@@ -82,9 +101,6 @@ class Predictor(object):
             submission.to_csv('submissions/submission_{}_{}'.format(timestamp, self.name), index=False)
 
         print("\nCreating submission file...")
-        train = pd.read_csv('data/train.csv')
-        test = pd.read_csv('data/test.csv')
-        train, test = adjust_datasets(train, test, 50)
         submit()
 
     @timing
@@ -117,7 +133,7 @@ class Predictor(object):
 
         # Create custom scorer to use GINI as optimization metric
         scoring = make_scorer(self._gini_normalized, greater_is_better=True)
-        grid = GridSearchCV(self.model, params, cv=nfolds, n_jobs=4, scoring=scoring, verbose=verbose)
+        grid = GridSearchCV(self.model, params, cv=nfolds, n_jobs=8, scoring=scoring, verbose=verbose)
         grid.fit(x_train, y_train)
 
         if persist:
@@ -139,9 +155,9 @@ class Predictor(object):
         return gini(a, p) / gini(a, a)
 
     def evaluate(self, metric='gini'):
-        _, test = self.split()
-        y_val = test['target'].values
-        x_val = test.drop('target', axis=1)
+        _, val = self.split()
+        y_val = val['target'].values
+        x_val = val.drop('target', axis=1)
         prediction = self.predict(x_val)
 
         print("Predictions: {} \n".format(prediction))
@@ -162,7 +178,7 @@ class BasePredictor(Predictor):
     def __init__(self, input, params={}, name=None):
         super().__init__(input, params, name='Naive')
 
-    def train(self, params=None):
+    def fit(self, params=None):
         """
         A dummy predictor does not require training. We only need the median
         """
@@ -184,9 +200,9 @@ if __name__ == "__main__":
     print("\nSetting up data for Base Predictor ...")
     model = BasePredictor(features)
 
-    # Train the model using the best set of parameters found by the gridsearch
+    # Fit the model using the best set of parameters found by the gridsearch
     print("\nTraining Base Predictor ...")
-    model.train()
+    model.fit()
 
     print("\nEvaluating model...")
     gini = model.evaluate(metric='gini')

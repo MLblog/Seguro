@@ -9,11 +9,11 @@ from FeatureEngineering import *
 
 class NNPredictor(Predictor):
 
-    def __init__(self, input, params={}, name='Neural Network'):
-        super().__init__(input, params, name=name)
+    def __init__(self, train, test, params={}, name='Neural Network'):
+        super().__init__(train, test, params, name=name)
         self.model = MLPRegressor()
 
-    def train(self, params=None):
+    def fit(self, params=None):
         """
         A function that trains the predictor on the given dataset. Optionally accepts a set of parameters
         """
@@ -36,7 +36,8 @@ class NNPredictor(Predictor):
 if __name__ == "__main__":
 
     # Test that the classifier works
-    input = pd.read_csv('data/train.csv')
+    train = pd.read_csv('data/train.csv')
+    test = pd.read_csv('data/test.csv')
 
     print("\nSetting up data for Neural Network ...")
 
@@ -60,15 +61,15 @@ if __name__ == "__main__":
         'tol': 0.0001
     }
 
-    model = NNPredictor(input, params)
-    model.create_submission(params)
+    model = NNPredictor(train, test, params)
+    #model.create_submission(params)
 
     # Tune Model
     tuning_params = {
-        'hidden_layer_sizes': [(100, 200, 100)],
+        'hidden_layer_sizes': [(100, 200, 100), (100,)],
         'solver': ['sgd', 'adam'],
         'activation': ['logistic', 'relu'],
-        'learning_rate': ['invscaling', 'constant'],
+        'learning_rate': ['constant'],
         'learning_rate_init': [0.01, 0.001],
         'power_t': [0.5],
         'tol': [0.0001]
@@ -76,11 +77,10 @@ if __name__ == "__main__":
 
     print("Tuning neural network")
     optimal_params, optimal_score = model.tune(tuning_params)
-    model.persist_tuning(score=optimal_score, params=optimal_params, write_to='tuning.txt')
 
     # Train the model using the best set of parameters found by the gridsearch
     print("\nTraining NN ...")
-    model.train()
+    model.fit(optimal_params)
 
     print("\nEvaluating NN...")
     gini = model.evaluate()

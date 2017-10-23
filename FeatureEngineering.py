@@ -7,6 +7,7 @@ Created on Sun Oct 15 18:23:12 2017
 
 import pandas as pd
 import time
+from sklearn import preprocessing
 
 
 def timing(f):
@@ -32,6 +33,37 @@ def drop_columns(df, threshold):
     nan_count = nan_count[nan_count <= threshold]
     df = df[nan_count.index.tolist()]
     return df
+
+def add_na_count(df):
+    df['na_count'] = df.isnull().sum(axis=1)
+    return df
+
+# Untested, use at own risk
+def normalize(df, method='minmax'):
+    """
+    Normalizes the features of the training set, leaving the target variable intact
+    :param df: The pd.DataFrame to be normalized.
+    :param method: a String defining the normalization method to be used. Minmax and standard are supported.
+    :return: The normalized pd.DataFrame.
+    """
+
+    # We should only normalize the features, not the label
+    if 'target' in list(df):
+        target = df['target']
+        df.drop('target', axis=1)
+
+    if method == 'minmax':
+        normalized = (df - df.min()) / (df.max() - df.min())
+        normalized['target'] = target
+        return normalized
+
+    if method == 'standard':
+        normalized = (df - df.mean()) / df.std()
+        normalized['target'] = target
+        return normalized
+
+    raise NotImplementedError("Supported normalization methods: 'minmax', 'standard'")
+
 
 def dummy_conversion(df, threshold):
     """
@@ -64,40 +96,9 @@ def dummy_conversion(df, threshold):
     df = pd.get_dummies(df, columns=list_names)
     return df
 
-
-def adjust_datasets(train, test, threshold, col_ignore=['target']):
-    """
-    Transform the train and test stes in equivalent versions.
-    """
-    print('Creating dummies')
-    col_ignore=list(col_ignore)
-    train = dummy_conversion(train,threshold)
-    test = dummy_conversion(test,threshold)
-    train_names= list(train)
-    for i in train_names:
-        if i in col_ignore:
-            train_names.remove(i)
-
-    test_names = list(test)
-
-    print('Creating features in train')
-    for i in train_names:
-        if (i not in test_names):
-            print('The feature '+i+' is not included in the test set. Accion: create the feature with value=0.')
-            test[i]=0
-    
-    print('Deleting extra varibles in train')
-    for i in test_names:
-        if i not in train_names:
-            print('The feature '+i+' is not included in the training set. Accion: delete the feature')
-            del test[i]
-            
-    test = test[train_names]
-    return train, test
-
-
-
 if __name__ == '__main__':
     df_test = pd.read_csv('data/test.csv')
     df_train = pd.read_csv('data/train.csv')
+
+
     df_train,df_test = adjust_datasets(df_train, df_test, 50, ['target'])
