@@ -8,7 +8,7 @@ Created on Sun Oct 15 18:23:12 2017
 import pandas as pd
 import time
 from sklearn import preprocessing
-
+from SoftImpute import *
 
 def timing(f):
     """
@@ -63,22 +63,24 @@ def normalize(df, method='minmax'):
         return normalized
 
     raise NotImplementedError("Supported normalization methods: 'minmax', 'standard'")
-
-
-def dummy_conversion(df, threshold):
-    """
-    Transform the columns with strings to features only if the number of dummy variables 
-    created are smaller than the the threshold
-    """
-
-    def identify_categories(match_word='_cat'):
+    
+    
+    
+def identify_categories(df,match_word='_cat'):
         """
         Identify the categorical functions
         """
         cols = list(df)
         return list(filter(lambda col: col.endswith(match_word), cols))
 
-    categories = identify_categories()
+
+def dummy_conversion(df, threshold):
+    """
+    Transform the columns with strings to features only if the number of dummy variables 
+    created are smaller than the the threshold
+    
+    """
+    categories = identify_categories(df)
     list_names = []
     for c in df.columns:
         if c in categories:
@@ -86,7 +88,11 @@ def dummy_conversion(df, threshold):
             n = len(df[c].cat.categories)
                 
             if n <= threshold:
-                list_names.append(c)
+                if n<3:
+                    print("Variable "+str(c)+" has "+ str(n) + " categories. Action: No dummy transformation.")
+                    df[c] = df[c].astype('f')
+                else:
+                    list_names.append(c)
             else:
                 print("Dropping variable " + str(c))
                 del df[c]
@@ -96,9 +102,33 @@ def dummy_conversion(df, threshold):
     df = pd.get_dummies(df, columns=list_names)
     return df
 
+def soft_impute(df):
+    """
+    Fill NaN values of a data frame based on the research:
+        Spectral Regularization Algorithms for Learning Large Incomplete Matrices
+    """
+    categories = identify_categories(df)
+    names = list(df)
+    df = pd.DataFrame.as_matrix(df)
+    clf = SoftImpute().fit(df)
+    X_imp = clf.predict(df.copy())
+    df = pd.DataFrame(df,columns=names)
+    X_imp = pd.DataFrame(X_imp,columns=names)
+    
+    for i in names:
+        #Esures Categorical transformation
+        if i in categories:
+            imput=X_imp[i][df[i].isnull()].astype(int)
+        else:
+            imput=X_imp[i][df[i].isnull()]
+                
+        df[i][df[i].isnull()] = imput
+    
+    return df
+
+
+
 if __name__ == '__main__':
-    df_test = pd.read_csv('data/test.csv')
-    df_train = pd.read_csv('data/train.csv')
-
-
-    df_train,df_test = adjust_datasets(df_train, df_test, 50, ['target'])
+    df_test = pd.read_csv('data/test.csv',na_values=[-1])
+    aux = dummy_conversion(df_test, 40)
+    aux2 = soft_impute(aux)
