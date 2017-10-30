@@ -42,7 +42,7 @@ class Predictor(object):
         return train, val
 
     @abstractmethod
-    def fit(self):
+    def fit(self, params=None, train=None):
         """
         A function that fits the predictor to the given dataset.
         """
@@ -55,7 +55,8 @@ class Predictor(object):
         :return: The predicted labels
         """
 
-    def preprocess(self, threshold=50):
+    def preprocess(self, threshold=7, df=None):
+
         def concat():
             self.train['is_train'] = True
             self.test['is_train'] = False
@@ -71,14 +72,22 @@ class Predictor(object):
             assert len(full) == (len(self.train) + len(self.test))
             del full
 
-        full = concat()
+        using_self_datasets = df is None
+        if using_self_datasets:
+            df = concat()
 
         ######################################
         # ACTUAL PREPROCESSING CALLS GO HERE #
         ######################################
-        full = dummy_conversion(full, threshold)
+        df = dummy_conversion(df, threshold)
+        df = append_na_count(df)
+        #df = kaggle_transform(full)
+        df = fill_na(df)
 
-        cleanup(full)
+        if using_self_datasets:
+            cleanup(df)
+        else:
+            return df
 
     def create_submission(self, params):
         def submit():
@@ -154,11 +163,14 @@ class Predictor(object):
 
         return gini(a, p) / gini(a, a)
 
-    def evaluate(self, metric='gini'):
-        _, val = self.split()
+    def evaluate(self, metric='gini', val=None):
+
+        if val is None:
+            _, val = self.split()
+
         y_val = val['target'].values
         x_val = val.drop('target', axis=1)
-        prediction = self.predict(x_val)
+        prediction = self.predict(x_val.as_matrix()) # XGBoost bug requires as_matrix call
 
         print("Predictions: {} \n".format(prediction))
 
@@ -175,8 +187,8 @@ class BasePredictor(Predictor):
     """
     A dummy predictor, always outputing the median. Used for benchmarking models.
     """
-    def __init__(self, input, params={}, name=None):
-        super().__init__(input, params, name='Naive')
+    def __init__(self, input, params={}, name="Naive"):
+        super().__init__(input, params, name=name)
 
     def fit(self, params=None):
         """

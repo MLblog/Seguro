@@ -102,11 +102,15 @@ def dummy_conversion(df, threshold):
     df = pd.get_dummies(df, columns=list_names)
     return df
 
+
 def soft_impute(df):
     """
     Fill NaN values of a data frame based on the research:
         Spectral Regularization Algorithms for Learning Large Incomplete Matrices
     """
+    id = df['id']
+    df = df.drop('id', axis=1)
+
     categories = identify_categories(df)
     names = list(df)
     df = pd.DataFrame.as_matrix(df)
@@ -116,17 +120,16 @@ def soft_impute(df):
     X_imp = pd.DataFrame(X_imp,columns=names)
     
     for i in names:
-        #Esures Categorical transformation
+        #Ensures Categorical transformation
         if i in categories:
             imput=X_imp[i][df[i].isnull()].astype(int)
         else:
             imput=X_imp[i][df[i].isnull()]
                 
         df[i][df[i].isnull()] = imput
-    
+
+    df['id'] = id
     return df
-
-
 
 if __name__ == '__main__':
     df_test = pd.read_csv('data/test.csv',na_values=[-1])

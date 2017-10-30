@@ -1,23 +1,24 @@
-import xgboost as xgb
+from lightgbm import LGBMClassifier
+
 from Predictor import Predictor
 from FeatureEngineering import *
 
 
-class XGBoostPredictor(Predictor):
+class LGBMPredictor(Predictor):
 
-    def __init__(self, train, test, params={}, name='XGBoost'):
+    def __init__(self, train, test, params={}, name='LightGBM'):
+        self.model = LGBMClassifier(**params)
         super().__init__(train, test, params, name=name)
-        self.model = xgb.XGBClassifier(**params)
 
     def set_params(self, params):
-        self.model = xgb.XGBClassifier(**params)
+        self.model = LGBMClassifier(**params)
 
     def fit(self, params=None, train=None):
         """
         A function that trains the predictor on the given dataset. Optionally accepts a set of parameters
         """
 
-        # If parameters are supplied, override constructor one's
+        # If parameters are supplieod, override constructor one's
         if params is not None:
             self.set_params(params)
 
@@ -33,7 +34,7 @@ class XGBoostPredictor(Predictor):
         if not self.model:
             raise ValueError("The predictor has not been trained yet")
 
-        prediction = self.model.predict_proba(x_val.as_matrix())[:, 1]
+        prediction = self.model.predict_proba(x_val)[:, 1]
         return prediction
 
 if __name__ == "__main__":
@@ -44,37 +45,41 @@ if __name__ == "__main__":
 
 
     ##### RUN XGBOOST
-    print("\nSetting up data for XGBoost ...")
+    print("\nSetting up data for LightGBM ...")
 
     params = {
-        'learning_rate': 0.02,
-        'max_depth': 4,
-        'subsample': 0.9,
-        'n_estimators': 1500,
-        'colsample_bytree': 0.9,
-        'objective': 'binary:logistic',
-        'min_child_weight': 10,
-        'silent': 1
+        'learning_rate': 0.01,
+        'n_estimators': 1250,
+        'max_depth': 10,
+        'max_bin': 10,
+        'subsample': 0.8,
+        'subsample_freq': 10,
+        'colsample_bytree': 0.8,
+        'min_child_samples': 500
     }
 
-    model = XGBoostPredictor(train, test, params)
+
+    model = LGBMPredictor(train, test, params)
     # model.create_submission(params)
 
     # # Tune Model
-    # print("Tuning XGBoost...")
+    # print("Tuning LightGBM...")
     # tuning_params = {
-    #     'learning_rate': [0.05],
-    #     'silent': [1],
-    #     'max_depth': [5],
-    #     'subsample': [1],
-    #     'reg_lambda': [0.8, 0.9],
-    #     'n_jobs': [8],
-    #     'n_estimators': [100, 200]
+    #     'learning_rate': [0.01],
+    #     'n_estimators': [1250],
+    #     'max_depth': [10],
+    #     'max_bin': [10],
+    #     'subsample': [0.8],
+    #     'subsample_freq': [10],
+    #     'colsample_bytree': [0.8],
+    #     'min_child_samples': [500]
     # }
-    # optimal_params, optimal_score = model.tune(tuning_params)
+    # # optimal_params, optimal_score = model.tune(tuning_params)
+
+
 
     # Train the model using the best set of parameters found by the gridsearch
-    print("\nTraining XGBoost ...")
+    print("\nTraining LightGBM ...")
     model.fit(params)
 
     print("\nEvaluating model...")
@@ -82,4 +87,3 @@ if __name__ == "__main__":
 
     print("\n##########")
     print("GINI score is: ", gini)
-    print("##########")
