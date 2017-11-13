@@ -8,7 +8,76 @@ Created on Sun Oct 15 18:23:12 2017
 import pandas as pd
 import time
 from sklearn import preprocessing
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA as sklearnPCA
+import matplotlib.pyplot as plt
+import statsmodels.formula.api as smf
+import seaborn as sns
+import numpy as np
 from SoftImpute import *
+
+
+
+def PCA_feature_reduction(X,threshold=0.95,plot_import=False):
+
+    """ 
+    This function redues the number of dimensions of the matrix X using Principal component analysis. This code follows
+    the guidelines from:
+    
+    https://github.com/llSourcell/Dimensionality_Reduction/blob/master/principal_component_analysis.ipynb
+    
+    Parameters
+    ----------
+    X = data frame with idependent variables.
+    Y = series with dependent variable.
+    threshold = min % of information that has to be preserved
+    ----------
+    X_red = data frame with reduced dimentions.
+    """
+    names_x = list(X)
+    X_std = StandardScaler().fit_transform(X)
+    
+    #u,s,v = np.linalg.svd(X_std.T)
+    n_components = X_std.shape[1]
+    pca = sklearnPCA(n_components=n_components)
+    pca.fit_transform(X_std)
+    X_pca = pd.DataFrame(pca.transform(X_std))
+
+    U = pca.components_ #(n_components, n_features)
+    #Select the components that provides mode information 
+    cum_sum = np.cumsum(pca.explained_variance_ratio_)
+    cum_sum = cum_sum[cum_sum<threshold]
+    
+    number_factors = len(cum_sum)
+    X_pca = X_pca.T
+    X_pca = X_pca[0:number_factors]
+    X_pca = X_pca.T
+    
+    U = U.T
+    U = U[0:number_factors]
+    U = U.T
+    
+    #calculate importnace 
+    U = U**2
+    importance = np.sum(U,axis=1)
+
+    importance = importance/np.sum(importance)
+    importance = pd.DataFrame(importance,columns=['Importnace (%)'])
+    names_x=pd.DataFrame(names_x,columns=['Var Name'])
+    importance=pd.concat([names_x,importance],axis=1)
+    importance = importance.sort_values(by=['Importnace (%)'],ascending=[0])
+    importance.reset_index(drop=True)
+    
+    if plot_import == True:
+        sns.set(font_scale=2)
+        f, ax = plt.subplots(figsize=(18, 15))
+        plt.title('Feature Importance: ')
+        sns.barplot(y="Var Name", x="Importnace (%)", data=importance, color="b",label= " n_categories= " + str(X_pca.shape[1]))
+        ax.set(xlabel='Importnace (%)', ylabel='')
+        plt.show()
+        
+    return X_pca
+
 
 def timing(f):
     """
@@ -135,3 +204,6 @@ if __name__ == '__main__':
     df_test = pd.read_csv('data/test.csv',na_values=[-1])
     aux = dummy_conversion(df_test, 40)
     aux2 = soft_impute(aux)
+    aux3 = PCA_feature_reduction(aux2,threshold=0.95,plot_import=True)
+    
+    
