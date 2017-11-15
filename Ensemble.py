@@ -1,3 +1,4 @@
+import os
 from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import LinearRegression
@@ -48,6 +49,36 @@ def preprocess(train, test):
     test = test[col]
     return train, test
 
+class EnsembleFromFiles(Predictor):
+    def __init__(self, base_dir, target, stacker, name='Ensemble from base files'):
+        self.base_dir = base_dir
+        self.target = target
+        self.model = stacker
+        self.name = name
+        self.train = pd.DataFrame()
+
+    def read_train(self):
+        all_files = os.listdir(self.base_dir)
+
+        # Read and concatenate submissions
+        outs = [pd.read_csv(os.path.join(self.base_dir, f), index_col=0) for f in all_files]
+        train = pd.concat(outs, axis=1)
+        cols = list(map(lambda x: "model_" + str(x), range(len(train.columns))))
+        train.columns = cols
+        return train
+
+    def fit(self, params):
+        if not self.train:
+            self.train = self.read_train()
+
+        self.model.fit(self.train, self.target)
+
+        # Evaluate
+        results = cross_val_score(self.model, features, target, cv=3, scoring='roc_auc')
+        print("Stacker score: %.5f" % (results.mean()))
+        persist_score(results.mean())
+
+
 
 class Ensemble(Predictor):
 
@@ -58,8 +89,50 @@ class Ensemble(Predictor):
         self.meta_features = None
         super().__init__(train, test, name=name)
 
-    def fit(self):
+    @staticmethod
+    def read_dir(base_dir):
+        """
+        Reads every submission file found in a directory.
 
+        Each file is expected to have the ID as the 1st column, followed by a base model's output in
+        the 2nd column.
+        :param base_dir: The root directory for submissions files
+        :return: The concatenated pd.DataFrame
+        """
+        all_files = os.listdir(base_dir)
+        outs = [pd.read_csv(os.path.join(base_dir, f), index_col=0) for f in all_files]
+        concat = pd.concat(outs, axis=1)
+        cols = list(map(lambda x: "model_" + str(x + 1), range(len(concat.columns))))
+        concat.columns = cols
+        return concat
+
+    def fit_from_files(self, base_dir, target, evaluate=True):
+
+        def persist_score(score, write_to='tuning.txt'):
+            with open(write_to, "a") as f:
+                f.write("------------------------------------------------\n")
+                f.write("Model\t{}\n".format(self.name))
+                f.write("Stacker score\t{}\nsubmissions: {}\nstacker: {}\n\n".format(score, base_dir, self.model))
+
+        # Read the training set
+        train = self.read_dir(base_dir)
+        # Fit the stacker models using base predictions as meta-features
+        self.model.fit(train, target)
+
+        # Evaluate
+        if evaluate:
+            results = cross_val_score(self.model, train, target, cv=3, scoring='roc_auc')
+            print("Stacker score: %.5f" % (results.mean()))
+            persist_score(results.mean())
+
+    def predict_from_files(self, base_dir):
+        test = self.read_dir(base_dir)
+
+        if hasattr(self.model, 'predict_proba'):
+            return self.model.predict_proba(test)[:, 1]
+        return self.model.predict(test)
+
+    def fit(self):
         def persist_score(score, write_to='tuning.txt'):
             """
             Persists a set of parameters as well as their achieved score to a file.
@@ -119,7 +192,6 @@ class Ensemble(Predictor):
         persist_score(results.mean())
 
     def predict(self, x_test=None):
-
         if x_test is None:
             x_test = self.meta_features
 
@@ -127,6 +199,36 @@ class Ensemble(Predictor):
             return self.model.predict_proba(x_test)[:, 1]
 
         return self.model.predict(x_test)
+
+def from_file_test():
+    """
+    Check that fit and predict from submission files works as expected.
+    """
+
+    # Specify the path to our submission files and the actual target for the training set
+    train_dir = 'training_submissions'
+    test_dir = 'test_submissions'
+    target = pd.read_csv('data/train.csv')['target']
+
+    submission = pd.DataFrame()
+    submission['id'] = pd.read_csv('data/test.csv')['id']
+
+    # Meta learners. Can be either classifiers or regressors.
+    log_model = LogisticRegression()
+    linear_model = LinearRegression()
+
+    # Create and train ensemble model. Cumbersome constructor since usual args are now meaningless.
+    # Ensembling from files should have been a different class.
+    ensemble = Ensemble(train=None, test=None, n_splits=3, stacker=log_model, base_models=None)
+    ensemble.fit_from_files(train_dir, target)
+
+    prediction = ensemble.predict_from_files(test_dir)
+
+    # Create submission
+    submission['target'] = prediction
+    submission.to_csv('from_file_ensemble.csv', index=False)
+
+
 
 if __name__ == '__main__':
 
