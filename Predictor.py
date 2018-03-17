@@ -199,9 +199,7 @@ class BasePredictor(Predictor):
         self.params['mean'] = np.mean(y_train)
 
     def predict(self, x_val):
-        #return [self.params['mean']] * len(x_val)
-        predictions = [0] * len(x_val)
-        predictions[5] = 1
+        return [self.params['mean']] * len(x_val)
 
 
 if __name__ == "__main__":
